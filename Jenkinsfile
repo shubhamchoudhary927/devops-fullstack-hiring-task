@@ -23,7 +23,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build -t taskapp:${BUILD_NUMBER} .
+                docker build -t taskapp:${BUILD_NUMBER} ./app
                 docker tag taskapp:${BUILD_NUMBER} taskapp:latest
                 '''
             }
@@ -126,6 +126,7 @@ pipeline {
                 --name taskapp_container \
                 -p 3000:3000 \
                 $DOCKER_USER/taskapp:previous || true
+
             '''
         }
 
