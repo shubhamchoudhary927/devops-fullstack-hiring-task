@@ -6,7 +6,7 @@ pipeline {
         IMAGE_TAG = "${BUILD_NUMBER}"
         LATEST_TAG = "latest"
 
-        DOCKERHUB_REPO = "taskapp"   
+        DOCKERHUB_REPO = "taskapp"
 
         CONTAINER_NAME = "taskapp_container"
         PORT = "3000"
@@ -22,32 +22,31 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh """
-                docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:${LATEST_TAG}
-                """
+                sh '''
+                docker build -t taskapp:${BUILD_NUMBER} .
+                docker tag taskapp:${BUILD_NUMBER} taskapp:latest
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                sh """
-                docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} npm test
-                """
+                sh '''
+                docker run --rm taskapp:${BUILD_NUMBER} npm test
+                '''
             }
         }
 
         stage('Docker Hub Login') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'docker-hub',
+                    credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
+                    sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    """
+                    '''
                 }
             }
         }
@@ -59,39 +58,43 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
-                    echo "Pushing image to Docker Hub..."
+                    sh '''
+                    docker tag taskapp:${BUILD_NUMBER} $DOCKER_USER/taskapp:${BUILD_NUMBER}
+                    docker tag taskapp:${BUILD_NUMBER} $DOCKER_USER/taskapp:latest
 
-                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${DOCKERHUB_REPO}:${LATEST_TAG}
-
-                    docker push $DOCKER_USER/${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    docker push $DOCKER_USER/${DOCKERHUB_REPO}:${LATEST_TAG}
-                    """
+                    docker push $DOCKER_USER/taskapp:${BUILD_NUMBER}
+                    docker push $DOCKER_USER/taskapp:latest
+                    '''
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh """
-                docker stop ${CONTAINER_NAME} || true
-                docker rm ${CONTAINER_NAME} || true
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    docker stop taskapp_container || true
+                    docker rm taskapp_container || true
 
-                docker run -d \
-                    --name ${CONTAINER_NAME} \
-                    -p ${PORT}:3000 \
-                    $DOCKER_USER/${DOCKERHUB_REPO}:${LATEST_TAG}
-                """
+                    docker run -d \
+                        --name taskapp_container \
+                        -p 3000:3000 \
+                        $DOCKER_USER/taskapp:latest
+                    '''
+                }
             }
         }
 
         stage('Health Check') {
             steps {
-                sh """
-                for i in {1..5}
+                sh '''
+                for i in 1 2 3 4 5
                 do
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/health)
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health)
 
                     if [ "$STATUS" = "200" ]; then
                         echo "Application healthy"
@@ -102,8 +105,9 @@ pipeline {
                     sleep 5
                 done
 
+                echo "Health check failed"
                 exit 1
-                """
+                '''
             }
         }
     }
@@ -111,18 +115,18 @@ pipeline {
     post {
 
         success {
-            echo "Pipeline SUCCESS  Deployment completed"
+            echo "Pipeline SUCCESS → Deployment completed"
         }
 
         failure {
-            echo "Pipeline FAILED Rolling back"
+            echo "Pipeline FAILED → Rolling back"
 
-            sh """
+            sh '''
             docker run -d \
-                --name ${CONTAINER_NAME} \
-                -p ${PORT}:3000 \
-                $DOCKER_USER/${DOCKERHUB_REPO}:previous || true
-            """
+                --name taskapp_container \
+                -p 3000:3000 \
+                $DOCKER_USER/taskapp:previous || true
+            '''
         }
 
         always {
