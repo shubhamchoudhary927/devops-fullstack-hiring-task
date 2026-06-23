@@ -1,0 +1,25 @@
+# Node dependencies
+node_modules/
+npm-debug.log
+
+# Environment variables (Crucial Safety)
+.env
+.env.production
+old_container.txt
+
+# Databases local storage
+pgdata/
+
+# OS files
+.DS_Store
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+ovider-aws_v6.51.0_x5
+
+
+*6.51.0
