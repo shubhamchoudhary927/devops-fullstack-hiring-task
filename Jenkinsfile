@@ -13,7 +13,9 @@ pipeline {
     stages {
 
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
         stage('Build Docker Image') {
@@ -27,7 +29,9 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh 'echo "Skipping tests (no test script found)"'
+                sh '''
+                echo "No test script found - skipping test stage safely"
+                '''
             }
         }
 
@@ -38,9 +42,9 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
+                    sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    """
+                    '''
                 }
             }
         }
@@ -53,11 +57,11 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh """
-                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${DOCKER_REPO}:${IMAGE_TAG}
-                    docker tag ${IMAGE_NAME}:latest $DOCKER_USER/${DOCKER_REPO}:latest
+                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USER/${DOCKER_REPO}:${IMAGE_TAG}
+                    docker tag ${IMAGE_NAME}:latest \$DOCKER_USER/${DOCKER_REPO}:latest
 
-                    docker push $DOCKER_USER/${DOCKER_REPO}:${IMAGE_TAG}
-                    docker push $DOCKER_USER/${DOCKER_REPO}:latest
+                    docker push \$DOCKER_USER/${DOCKER_REPO}:${IMAGE_TAG}
+                    docker push \$DOCKER_USER/${DOCKER_REPO}:latest
                     """
                 }
             }
@@ -77,7 +81,7 @@ pipeline {
                     docker run -d \
                         --name ${CONTAINER_NAME} \
                         -p ${PORT}:3000 \
-                        $DOCKER_USER/${DOCKER_REPO}:latest
+                        \$DOCKER_USER/${DOCKER_REPO}:latest
                     """
                 }
             }
@@ -85,10 +89,10 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                sh """
+                sh '''
                 for i in 1 2 3 4 5
                 do
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/health || true)
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health || true)
 
                     if [ "$STATUS" = "200" ]; then
                         echo "Application healthy"
@@ -101,7 +105,7 @@ pipeline {
 
                 echo "Health check failed"
                 exit 1
-                """
+                '''
             }
         }
     }
@@ -112,7 +116,7 @@ pipeline {
         }
 
         failure {
-            echo "FAILED: Pipeline failed"
+            echo "FAILED: Pipeline failed → check logs"
         }
 
         always {
