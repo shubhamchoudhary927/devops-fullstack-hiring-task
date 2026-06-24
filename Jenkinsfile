@@ -80,7 +80,7 @@ pipeline {
 
                     docker run -d \
                         --name ${CONTAINER_NAME} \
-                        --env-file /home/ubuntu/.env \
+                        --env-file /var/jenkins_home/.env \
                         -p ${PORT}:3000 \
                         \$DOCKER_USER/${DOCKER_REPO}:latest
                     """
