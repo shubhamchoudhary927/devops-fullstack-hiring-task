@@ -93,7 +93,7 @@ pipeline {
                 sh '''
                 for i in 1 2 3 4 5
                 do
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health || true)
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://172.31.6.54:3000/health || true)
 
                     if [ "$STATUS" = "200" ]; then
                         echo "Application healthy"
