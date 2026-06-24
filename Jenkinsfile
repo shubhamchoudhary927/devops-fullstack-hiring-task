@@ -80,6 +80,7 @@ pipeline {
 
                     docker run -d \
                         --name ${CONTAINER_NAME} \
+                        --env-file /home/ubuntu/.env \
                         -p ${PORT}:3000 \
                         \$DOCKER_USER/${DOCKER_REPO}:latest
                     """
